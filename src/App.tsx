@@ -18,10 +18,14 @@ const Square: React.FC<SquareProps> = ({ value, highlight, onSquareClick }) => {
   );
 };
 
+type Turn = {
+  squares: Array<SquareValue>;
+  hand?: Number;
+};
 interface BoardProps {
   xIsNext: boolean;
   squares: Array<SquareValue>;
-  onPlay: (squares: Array<SquareValue>) => void;
+  onPlay: (turn: Turn) => void;
 }
 const Board: React.FC<BoardProps> = ({ xIsNext, squares, onPlay }) => {
   const winner = calculateWinner(squares);
@@ -29,9 +33,18 @@ const Board: React.FC<BoardProps> = ({ xIsNext, squares, onPlay }) => {
   if (winner.winner) {
     status = "Winner: " + winner.winner;
   } else {
-    status = "Next Player: " + (xIsNext ? "X" : "O");
+    const checkDraw = (element: SquareValue) => {
+      if (element === "X" || element === "O") return true;
+      else return false;
+    };
+    if (squares.every(checkDraw)) {
+      status = "Draw";
+    } else {
+      status = "Next Player: " + (xIsNext ? "X" : "O");
+    }
   }
   function handleClick(i: number) {
+    // TODO
     if (squares[i] || calculateWinner(squares).winner) return;
     const nextSquares = squares.slice();
     if (xIsNext) {
@@ -39,7 +52,11 @@ const Board: React.FC<BoardProps> = ({ xIsNext, squares, onPlay }) => {
     } else {
       nextSquares[i] = "O";
     }
-    onPlay(nextSquares);
+    const turn: Turn = {
+      squares: nextSquares,
+      hand: i,
+    };
+    onPlay(turn);
   }
   const checkHighlight = (n: Number) => {
     if (winner.line) {
@@ -85,15 +102,15 @@ const ToggleSort: React.FC<IToggleSort> = ({ isAscend, onAscendClick }) => {
   );
 };
 export default function Game() {
-  const [history, setHistory] = useState<Array<Array<SquareValue>>>([
-    Array(9).fill(null),
+  const [history, setHistory] = useState<Array<Turn>>([
+    { squares: Array(9).fill(null) },
   ]);
   const [currentMove, setCurrentMove] = useState<number>(0);
   const [isAscend, setIsAscend] = useState<boolean>(true);
-  const currentSquares: Array<SquareValue> = history[currentMove];
+  const currentSquares: Array<SquareValue> = history[currentMove].squares;
   const xIsNext: boolean = currentMove % 2 === 0;
-  function handlePlay(nextSquares: Array<SquareValue>) {
-    const nextHistory = [...history.slice(0, currentMove + 1), nextSquares];
+  function handlePlay(turn: Turn) {
+    const nextHistory = [...history.slice(0, currentMove + 1), turn];
     setHistory(nextHistory);
     setCurrentMove(nextHistory.length - 1);
   }
@@ -104,24 +121,32 @@ export default function Game() {
   function toggleAscend() {
     setIsAscend(!isAscend);
   }
-  const moves = history.map((squares, move) => {
+  const moves = history.map((turn, move) => {
     let description: string;
+    const hand: number = (turn.hand as number) + 1;
+    const row = Math.floor(hand / 3);
+    const col = hand % 3;
+    const handDesc = "(" + row + ", " + col + ")";
     if (move === currentMove) {
       return (
         <li key={move}>
-          <div>You are at Move #{move}</div>
+          <div>
+            You are at Move #{move}, {handDesc}
+          </div>
         </li>
       );
-    } else if (move > 0) {
-      description = "Go To Move #" + move;
     } else {
-      description = "Go to game start";
+      if (move > 0) {
+        description = "Go To Move #" + move + ", " + handDesc;
+      } else {
+        description = "Go to game start";
+      }
+      return (
+        <li key={move}>
+          <button onClick={() => jumpTo(move)}>{description}</button>
+        </li>
+      );
     }
-    return (
-      <li key={move}>
-        <button onClick={() => jumpTo(move)}>{description}</button>
-      </li>
-    );
   });
 
   return (
